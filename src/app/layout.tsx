@@ -5,9 +5,9 @@ import type { Metadata } from "next";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { APP_CONFIG } from "@/config/app-config";
-import { fontVars } from "@/lib/fonts/registry";
-import { PREFERENCE_DEFAULTS } from "@/lib/preferences/preferences-config";
+import { FONT_KEYS, fontVars } from "@/lib/fonts/registry";
 import { ThemeBootScript } from "@/scripts/theme-boot";
+import { getAllPreferences } from "@/server/server-actions";
 import { PreferencesStoreProvider } from "@/stores/preferences/preferences-provider";
 
 import "./globals.css";
@@ -17,19 +17,19 @@ export const metadata: Metadata = {
   description: APP_CONFIG.meta.description,
 };
 
-export default function RootLayout({ children }: Readonly<{ children: ReactNode }>) {
-  const { theme_mode, theme_preset, content_layout, navbar_style, sidebar_variant, sidebar_collapsible, font } =
-    PREFERENCE_DEFAULTS;
+export default async function RootLayout({ children }: Readonly<{ children: ReactNode }>) {
+  const prefs = await getAllPreferences(FONT_KEYS);
+
   return (
     <html
       lang="en"
-      data-theme-mode={theme_mode}
-      data-theme-preset={theme_preset}
-      data-content-layout={content_layout}
-      data-navbar-style={navbar_style}
-      data-sidebar-variant={sidebar_variant}
-      data-sidebar-collapsible={sidebar_collapsible}
-      data-font={font}
+      data-theme-mode={prefs.themeMode}
+      data-theme-preset={prefs.themePreset}
+      data-content-layout={prefs.contentLayout}
+      data-navbar-style={prefs.navbarStyle}
+      data-sidebar-variant={prefs.sidebarVariant}
+      data-sidebar-collapsible={prefs.sidebarCollapsible}
+      data-font={prefs.font}
       suppressHydrationWarning
     >
       <head>
@@ -39,11 +39,13 @@ export default function RootLayout({ children }: Readonly<{ children: ReactNode 
       <body className={`${fontVars} min-h-screen antialiased`}>
         <TooltipProvider>
           <PreferencesStoreProvider
-            themeMode={theme_mode}
-            themePreset={theme_preset}
-            contentLayout={content_layout}
-            navbarStyle={navbar_style}
-            font={font}
+            themeMode={prefs.themeMode}
+            themePreset={prefs.themePreset}
+            contentLayout={prefs.contentLayout}
+            navbarStyle={prefs.navbarStyle}
+            font={prefs.font}
+            sidebarVariant={prefs.sidebarVariant}
+            sidebarCollapsible={prefs.sidebarCollapsible}
           >
             {children}
             <Toaster />

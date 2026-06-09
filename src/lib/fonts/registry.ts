@@ -183,6 +183,7 @@ export const fontRegistry = {
 } as const;
 
 export type FontKey = keyof typeof fontRegistry;
+export const FONT_KEYS = Object.keys(fontRegistry) as FontKey[];
 
 export const fontVars = (Object.values(fontRegistry) as Array<(typeof fontRegistry)[FontKey]>)
   .map((f) => f.font.variable)

@@ -50,6 +50,8 @@ export const PreferencesStoreProvider = ({
   font,
   contentLayout,
   navbarStyle,
+  sidebarVariant,
+  sidebarCollapsible,
 }: {
   children: React.ReactNode;
   themeMode: PreferencesState["themeMode"];
@@ -57,6 +59,8 @@ export const PreferencesStoreProvider = ({
   font: PreferencesState["font"];
   contentLayout: PreferencesState["contentLayout"];
   navbarStyle: PreferencesState["navbarStyle"];
+  sidebarVariant: PreferencesState["sidebarVariant"];
+  sidebarCollapsible: PreferencesState["sidebarCollapsible"];
 }) => {
   const [store] = useState<StoreApi<PreferencesState>>(() =>
     createPreferencesStore({
@@ -65,6 +69,9 @@ export const PreferencesStoreProvider = ({
       font,
       contentLayout,
       navbarStyle,
+      sidebarVariant,
+      sidebarCollapsible,
+      isSynced: true,
     }),
   );
 
@@ -97,8 +104,7 @@ export const PreferencesStoreProvider = ({
       }
     };
 
-    const startMode = domSnapshotRef.current?.themeMode ?? store.getState().themeMode;
-    applyFromMode(startMode);
+    applyFromMode(store.getState().themeMode);
 
     const unsubscribeStore = store.subscribe((s, p) => {
       if (s.themeMode !== p.themeMode) applyFromMode(s.themeMode);

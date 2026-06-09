@@ -23,6 +23,7 @@ import { applyThemePreset } from "@/lib/preferences/theme-utils";
 import { usePreferencesStore } from "@/stores/preferences/preferences-provider";
 
 export function LayoutControls() {
+  const isSynced = usePreferencesStore((s) => s.isSynced);
   const themeMode = usePreferencesStore((s) => s.themeMode);
   const resolvedThemeMode = usePreferencesStore((s) => s.resolvedThemeMode);
   const setThemeMode = usePreferencesStore((s) => s.setThemeMode);
@@ -109,7 +110,9 @@ export function LayoutControls() {
             <h4 className="font-medium text-sm leading-none">Preferences</h4>
             <p className="text-muted-foreground text-xs">Customize your dashboard layout preferences.</p>
           </div>
-          <div className="space-y-3 **:data-[slot=toggle-group]:w-full **:data-[slot=toggle-group-item]:flex-1 **:data-[slot=toggle-group-item]:text-xs">
+          <div
+            className={`space-y-3 **:data-[slot=toggle-group]:w-full **:data-[slot=toggle-group-item]:flex-1 **:data-[slot=toggle-group-item]:text-xs transition-opacity ${!isSynced ? "opacity-70 pointer-events-none" : ""}`}
+          >
             <div className="space-y-1">
               <Label className="font-medium text-xs">Theme Preset</Label>
               <Select value={themePreset} onValueChange={onThemePresetChange}>
@@ -249,7 +252,14 @@ export function LayoutControls() {
               </ToggleGroup>
             </div>
 
-            <Button type="button" size="sm" variant="outline" className="w-full text-xs" onClick={handleRestore}>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="w-full text-xs"
+              onClick={handleRestore}
+              disabled={!isSynced}
+            >
               Restore Defaults
             </Button>
           </div>
