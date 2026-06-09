@@ -16,6 +16,45 @@ type ChatStore = {
   selectConversation: (conversationId: Conversation["id"]) => void;
 };
 
+const DRAFTS_STORAGE_KEY = "chat-drafts";
+
+function loadDraftsFromStorage(): Record<Conversation["id"], string> {
+  if (typeof window === "undefined") {
+    return conversations.reduce<Record<Conversation["id"], string>>((acc, conv) => {
+      acc[conv.id] = "";
+      return acc;
+    }, {});
+  }
+
+  try {
+    const stored = window.sessionStorage.getItem(DRAFTS_STORAGE_KEY);
+    if (stored) {
+      const parsed = JSON.parse(stored) as Record<string, string>;
+      return conversations.reduce<Record<Conversation["id"], string>>((acc, conv) => {
+        acc[conv.id] = parsed[conv.id] ?? "";
+        return acc;
+      }, {});
+    }
+  } catch {
+    // ignore
+  }
+
+  return conversations.reduce<Record<Conversation["id"], string>>((acc, conv) => {
+    acc[conv.id] = "";
+    return acc;
+  }, {});
+}
+
+function saveDraftsToStorage(drafts: Record<Conversation["id"], string>): void {
+  if (typeof window === "undefined") return;
+
+  try {
+    window.sessionStorage.setItem(DRAFTS_STORAGE_KEY, JSON.stringify(drafts));
+  } catch {
+    // ignore
+  }
+}
+
 const initialUnreadState = conversations.reduce<Record<Conversation["id"], { isUnread: boolean; unreadCount: number }>>(
   (acc, conv) => {
     acc[conv.id] = { isUnread: conv.isUnread, unreadCount: conv.unreadCount };
@@ -24,10 +63,7 @@ const initialUnreadState = conversations.reduce<Record<Conversation["id"], { isU
   {},
 );
 
-const initialDrafts = conversations.reduce<Record<Conversation["id"], string>>((acc, conv) => {
-  acc[conv.id] = "";
-  return acc;
-}, {});
+const initialDrafts = loadDraftsFromStorage();
 
 const useChatStore = create<ChatStore>((set) => ({
   chat: {
@@ -37,9 +73,11 @@ const useChatStore = create<ChatStore>((set) => ({
   unreadState: initialUnreadState,
   setChat: (chat) => set({ chat }),
   setDraft: (conversationId, draft) =>
-    set((state) => ({
-      drafts: { ...state.drafts, [conversationId]: draft },
-    })),
+    set((state) => {
+      const newDrafts = { ...state.drafts, [conversationId]: draft };
+      saveDraftsToStorage(newDrafts);
+      return { drafts: newDrafts };
+    }),
   clearUnread: (conversationId) =>
     set((state) => ({
       unreadState: {
