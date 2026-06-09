@@ -2,7 +2,7 @@
 
 import { useMemo } from "react";
 
-import { format, subMinutes } from "date-fns";
+import { format } from "date-fns";
 import { ArrowUpRight } from "lucide-react";
 import { Area, AreaChart, CartesianGrid, Line, XAxis, YAxis } from "recharts";
 
@@ -16,118 +16,8 @@ import {
   ChartTooltipContent,
 } from "@/components/ui/chart";
 
-import { adjustNumber } from "./ecommerce-filter-utils";
+import { generateTrafficData, getChartYAxisMax } from "./ecommerce-filter-utils";
 import { useEcommerceFilters } from "./ecommerce-filters-context";
-
-const trafficIntervalMinutes = 15;
-
-const trafficPoints = [
-  { visitors: 280, anomalies: 8 },
-  { visitors: 420, anomalies: 4 },
-  { visitors: 360, anomalies: 3 },
-  { visitors: 140, anomalies: 2 },
-  { visitors: 80, anomalies: 1 },
-  { visitors: 600, anomalies: 4 },
-  { visitors: 260, anomalies: 3 },
-  { visitors: 70, anomalies: 2 },
-  { visitors: 90, anomalies: 1 },
-  { visitors: 180, anomalies: 4 },
-  { visitors: 150, anomalies: 3 },
-  { visitors: 60, anomalies: 2 },
-  { visitors: 430, anomalies: 1 },
-  { visitors: 110, anomalies: 4 },
-  { visitors: 260, anomalies: 3 },
-  { visitors: 120, anomalies: 2 },
-  { visitors: 90, anomalies: 1 },
-  { visitors: 40, anomalies: 8 },
-  { visitors: 75, anomalies: 3 },
-  { visitors: 0, anomalies: 2 },
-  { visitors: 15, anomalies: 1 },
-  { visitors: 35, anomalies: 4 },
-  { visitors: 60, anomalies: 3 },
-  { visitors: 95, anomalies: 2 },
-  { visitors: 105, anomalies: 1 },
-  { visitors: 120, anomalies: 4 },
-  { visitors: 0, anomalies: 3 },
-  { visitors: 25, anomalies: 2 },
-  { visitors: 70, anomalies: 1 },
-  { visitors: 110, anomalies: 4 },
-  { visitors: 0, anomalies: 3 },
-  { visitors: 140, anomalies: 2 },
-  { visitors: 310, anomalies: 1 },
-  { visitors: 120, anomalies: 4 },
-  { visitors: 160, anomalies: 8 },
-  { visitors: 30, anomalies: 2 },
-  { visitors: 20, anomalies: 1 },
-  { visitors: 0, anomalies: 4 },
-  { visitors: 120, anomalies: 3 },
-  { visitors: 210, anomalies: 2 },
-  { visitors: 110, anomalies: 1 },
-  { visitors: 190, anomalies: 4 },
-  { visitors: 0, anomalies: 3 },
-  { visitors: 85, anomalies: 2 },
-  { visitors: 250, anomalies: 1 },
-  { visitors: 40, anomalies: 4 },
-  { visitors: 110, anomalies: 3 },
-  { visitors: 0, anomalies: 2 },
-  { visitors: 140, anomalies: 1 },
-  { visitors: 95, anomalies: 4 },
-  { visitors: 180, anomalies: 3 },
-  { visitors: 620, anomalies: 18 },
-  { visitors: 35, anomalies: 1 },
-  { visitors: 330, anomalies: 4 },
-  { visitors: 45, anomalies: 3 },
-  { visitors: 0, anomalies: 2 },
-  { visitors: 160, anomalies: 1 },
-  { visitors: 190, anomalies: 4 },
-  { visitors: 260, anomalies: 3 },
-  { visitors: 90, anomalies: 2 },
-  { visitors: 70, anomalies: 1 },
-  { visitors: 180, anomalies: 4 },
-  { visitors: 150, anomalies: 3 },
-  { visitors: 280, anomalies: 2 },
-  { visitors: 160, anomalies: 1 },
-  { visitors: 20, anomalies: 4 },
-  { visitors: 120, anomalies: 3 },
-  { visitors: 200, anomalies: 2 },
-  { visitors: 45, anomalies: 8 },
-  { visitors: 115, anomalies: 4 },
-  { visitors: 145, anomalies: 3 },
-  { visitors: 40, anomalies: 2 },
-  { visitors: 160, anomalies: 1 },
-  { visitors: 170, anomalies: 4 },
-  { visitors: 95, anomalies: 3 },
-  { visitors: 140, anomalies: 2 },
-  { visitors: 70, anomalies: 1 },
-  { visitors: 230, anomalies: 4 },
-  { visitors: 120, anomalies: 3 },
-  { visitors: 65, anomalies: 2 },
-  { visitors: 35, anomalies: 1 },
-  { visitors: 0, anomalies: 4 },
-  { visitors: 80, anomalies: 3 },
-  { visitors: 180, anomalies: 2 },
-  { visitors: 95, anomalies: 1 },
-  { visitors: 140, anomalies: 8 },
-  { visitors: 270, anomalies: 3 },
-  { visitors: 110, anomalies: 2 },
-  { visitors: 50, anomalies: 1 },
-  { visitors: 230, anomalies: 18 },
-  { visitors: 115, anomalies: 3 },
-  { visitors: 80, anomalies: 2 },
-  { visitors: 260, anomalies: 1 },
-  { visitors: 20, anomalies: 4 },
-  { visitors: 120, anomalies: 3 },
-  { visitors: 5, anomalies: 2 },
-] as const;
-
-function getTrafficData() {
-  const now = new Date();
-
-  return trafficPoints.map((point, index) => ({
-    ...point,
-    timestamp: subMinutes(now, (trafficPoints.length - 1 - index) * trafficIntervalMinutes).toISOString(),
-  }));
-}
 
 const trafficConfig = {
   visitors: {
@@ -146,47 +36,19 @@ function formatTrafficTooltipLabel(value: string) {
 
 export function StoreTraffic() {
   const filters = useEcommerceFilters();
-  const baseTrafficData = useMemo(getTrafficData, []);
 
-  const adjustedTrafficData = useMemo(() => {
-    const multiplier =
-      filters.period === "year-to-date"
-        ? 0.95
-        : filters.period === "last-30-days"
-          ? 1.03
-          : filters.period === "last-month"
-            ? 0.92
-            : 1;
+  const trafficData = useMemo(() => generateTrafficData(filters), [filters]);
 
-    const channelMultiplier =
-      filters.channel === "all-channels"
-        ? 1
-        : filters.channel === "online-store"
-          ? 0.6
-          : filters.channel === "marketplace"
-            ? 0.3
-            : filters.channel === "social"
-              ? 0.25
-              : 0.1;
+  const totalVisits = useMemo(() => trafficData.reduce((sum, item) => sum + item.visitors, 0), [trafficData]);
 
-    return baseTrafficData.map((item) => ({
-      ...item,
-      visitors: Math.round(item.visitors * multiplier * channelMultiplier),
-      anomalies: Math.max(0, Math.round(item.anomalies * multiplier * channelMultiplier)),
-    }));
-  }, [baseTrafficData, filters]);
+  const yAxisMax = useMemo(() => getChartYAxisMax(filters), [filters]);
 
-  const totalVisits = useMemo(
-    () => adjustedTrafficData.reduce((sum, item) => sum + item.visitors, 0),
-    [adjustedTrafficData],
-  );
-
-  const firstTrafficTimestamp = adjustedTrafficData[0].timestamp;
-  const lastTrafficTimestamp = adjustedTrafficData.at(-1)?.timestamp ?? "";
+  const firstTrafficTimestamp = trafficData[0].timestamp;
+  const lastTrafficTimestamp = trafficData.at(-1)?.timestamp ?? "";
 
   function formatTrafficTick(value: string) {
     if (value === firstTrafficTimestamp) {
-      return "24h ago";
+      return filters.period === "year-to-date" ? "Start" : "24h ago";
     }
 
     return value === lastTrafficTimestamp ? "now" : "";
@@ -206,7 +68,7 @@ export function StoreTraffic() {
 
       <CardContent>
         <ChartContainer config={trafficConfig} className="h-54 w-full">
-          <AreaChart accessibilityLayer data={adjustedTrafficData} margin={{ bottom: 0, left: 0, right: 0, top: 8 }}>
+          <AreaChart accessibilityLayer data={trafficData} margin={{ bottom: 0, left: 0, right: 0, top: 8 }}>
             <defs>
               <linearGradient id="fillVisitors" x1="0" x2="0" y1="0" y2="1">
                 <stop offset="5%" stopColor="var(--color-visitors)" stopOpacity={0.28} />
@@ -221,9 +83,16 @@ export function StoreTraffic() {
               tickFormatter={formatTrafficTick}
               tickLine={false}
               tickMargin={10}
-              ticks={[adjustedTrafficData[0].timestamp, adjustedTrafficData.at(-1)?.timestamp ?? ""]}
+              ticks={[trafficData[0].timestamp, trafficData.at(-1)?.timestamp ?? ""]}
             />
-            <YAxis axisLine={false} domain={[0, 650]} tickLine={false} tickMargin={6} width={36} yAxisId="traffic" />
+            <YAxis
+              axisLine={false}
+              domain={[0, yAxisMax]}
+              tickLine={false}
+              tickMargin={6}
+              width={36}
+              yAxisId="traffic"
+            />
             <ChartTooltip
               content={<ChartTooltipContent labelFormatter={(value) => formatTrafficTooltipLabel(String(value))} />}
               cursor={{ stroke: "var(--border)", strokeDasharray: "4 4" }}

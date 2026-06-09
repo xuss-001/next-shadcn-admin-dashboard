@@ -10,48 +10,16 @@ import { SimpleIcon } from "@/components/simple-icon";
 import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { type ChartConfig, ChartContainer } from "@/components/ui/chart";
 
-import { adjustNumber, adjustPercentChange } from "./ecommerce-filter-utils";
+import { generateTrafficSources, type TrafficSourceData } from "./ecommerce-filter-utils";
 import { useEcommerceFilters } from "./ecommerce-filters-context";
 
-const trafficSources = [
-  {
-    name: "Meta",
-    visits: "5,640",
-    share: 38,
-    change: "+18%",
-    icon: siMeta,
-  },
-  {
-    name: "Google",
-    visits: "3,740",
-    share: 25,
-    change: "-6%",
-    icon: siGoogle,
-  },
-  {
-    name: "Shopify",
-    visits: "2,960",
-    share: 20,
-    change: "+7%",
-    icon: siShopify,
-  },
-  {
-    name: "TikTok",
-    visits: "1,340",
-    share: 10,
-    change: "+9%",
-    icon: siTiktok,
-  },
-  {
-    name: "eBay",
-    visits: "1,080",
-    share: 7,
-    change: "-3%",
-    icon: siEbay,
-  },
-] as const;
-
-type TrafficSource = (typeof trafficSources)[number];
+const ICON_MAP: Record<string, typeof siMeta> = {
+  meta: siMeta,
+  google: siGoogle,
+  shopify: siShopify,
+  tiktok: siTiktok,
+  ebay: siEbay,
+};
 
 const trafficSourcesConfig = {
   share: {
@@ -66,13 +34,13 @@ type IconLabelProps = {
   width?: number | string;
   x?: number | string;
   y?: number | string;
-  data?: TrafficSource[];
+  data?: TrafficSourceData[];
 };
 
 type SourceLabelProps = LabelProps & {
   index?: number;
   value?: number | string;
-  data?: TrafficSource[];
+  data?: TrafficSourceData[];
 };
 
 function getNumber(value: number | string | undefined) {
@@ -100,13 +68,18 @@ function TrafficSourceIconLabel({ height, index, width, x, y, data }: IconLabelP
     return null;
   }
 
+  const icon = ICON_MAP[source.iconKey];
+  if (!icon) {
+    return null;
+  }
+
   const iconSize = 16;
   const iconX = Math.max(xValue + 10, xValue + widthValue - iconSize - 10);
   const iconY = yValue + (heightValue - iconSize) / 2;
 
   return (
     <foreignObject height={iconSize} x={iconX} y={iconY} width={iconSize}>
-      <SimpleIcon icon={source.icon} className="size-4 fill-foreground" />
+      <SimpleIcon icon={icon} className="size-4 fill-foreground" />
     </foreignObject>
   );
 }
@@ -162,55 +135,10 @@ function TrafficSourceChangeLabel({ height, value, y }: SourceLabelProps) {
   );
 }
 
-const CHANNEL_SOURCE_MAP: Record<string, string[]> = {
-  "all-channels": ["Meta", "Google", "Shopify", "TikTok", "eBay"],
-  "online-store": ["Shopify"],
-  marketplace: ["eBay", "Google"],
-  social: ["Meta", "TikTok"],
-  retail: ["Google"],
-};
-
 export function TrafficSources() {
   const filters = useEcommerceFilters();
 
-  const adjustedData = useMemo((): TrafficSource[] => {
-    const allowedSources = CHANNEL_SOURCE_MAP[filters.channel] || CHANNEL_SOURCE_MAP["all-channels"];
-
-    const periodMultiplier =
-      filters.period === "year-to-date"
-        ? 0.9
-        : filters.period === "last-30-days"
-          ? 1.05
-          : filters.period === "last-month"
-            ? 0.93
-            : 1;
-
-    let filtered: TrafficSource[] = trafficSources
-      .filter((source) => allowedSources.includes(source.name))
-      .map((source) => {
-        const visitsNum = parseInt(source.visits.replace(",", ""), 10);
-        const adjustedVisits = adjustNumber(visitsNum, { ...filters, channel: "all-channels" });
-        const adjustedShare = Math.round(source.share * periodMultiplier * 0.9);
-        const changeNum = parseFloat(source.change);
-        const adjustedChange = adjustPercentChange(changeNum, { ...filters, channel: "all-channels" });
-        return {
-          ...source,
-          visits: adjustedVisits.toLocaleString(),
-          share: Math.min(100, Math.max(5, adjustedShare)),
-          change: adjustedChange,
-        } as TrafficSource;
-      });
-
-    const totalShare = filtered.reduce((sum, s) => sum + s.share, 0);
-    if (totalShare > 0 && totalShare !== 100) {
-      filtered = filtered.map((s, i) => ({
-        ...s,
-        share: i === 0 ? s.share + (100 - totalShare) : s.share,
-      })) as TrafficSource[];
-    }
-
-    return filtered;
-  }, [filters]);
+  const adjustedData = useMemo(() => generateTrafficSources(filters), [filters]);
 
   const totalVisits = useMemo(
     () => adjustedData.reduce((sum, s) => sum + parseInt(s.visits.replace(",", ""), 10), 0),

@@ -9,50 +9,12 @@ import { Area, Bar, CartesianGrid, ComposedChart, XAxis, YAxis } from "recharts"
 import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { type ChartConfig, ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 
-import { adjustCurrency, adjustNumber, adjustPercentChange } from "./ecommerce-filter-utils";
+import { formatCurrency, formatPercent, generateKPIData, hashString, seededRandom } from "./ecommerce-filter-utils";
 import { useEcommerceFilters } from "./ecommerce-filters-context";
 
 const revenueBucketRanges = ["01-05", "06-10", "11-15", "16-20", "21-25", "26-31"] as const;
 
-const revenueBucketValues = [
-  [4820, 5150, 5060, 5520, 5990, 6880],
-  [5140, 5360, 5520, 5860, 6120, 6720],
-  [4920, 4680, 5150, 5360, 5720, 6150],
-  [5480, 5920, 5660, 6180, 6340, 6660],
-  [5840, 6220, 6480, 6110, 6680, 7230],
-  [6280, 6740, 6960, 7120, 6780, 7240],
-  [6820, 7240, 7680, 7410, 7920, 7810],
-  [6040, 6420, 6150, 6860, 7080, 7090],
-  [5860, 6120, 6340, 6080, 6620, 6900],
-  [6520, 6840, 7060, 7420, 7160, 8280],
-  [6980, 7320, 7640, 7160, 8040, 8620],
-  [6900, 7400, 8100, 8600, 8200, 9360],
-] as const;
-
 const monthFormatter = new Intl.DateTimeFormat("en-US", { month: "short" });
-
-function getRollingRevenueBuckets() {
-  const currentMonth = new Date();
-  currentMonth.setDate(1);
-
-  return revenueBucketValues.map((values, index) => {
-    const monthDate = new Date(currentMonth);
-    monthDate.setMonth(currentMonth.getMonth() - (revenueBucketValues.length - 1 - index));
-
-    return {
-      month: `${monthFormatter.format(monthDate)} ${String(monthDate.getFullYear()).slice(-2)}`,
-      values,
-    };
-  });
-}
-
-const revenueOverviewData = getRollingRevenueBuckets().flatMap(({ month, values }) =>
-  values.map((revenue, index) => ({
-    period: `${month} ${revenueBucketRanges[index]}`,
-    profit: Math.round(revenue * (index % 3 === 0 ? 0.24 : index % 3 === 1 ? 0.28 : 0.26)),
-    revenue,
-  })),
-);
 
 const revenueOverviewConfig = {
   revenue: {
@@ -89,62 +51,103 @@ function formatCurrencyTooltipValue(value: unknown) {
   return typeof value === "number" ? `$${value.toLocaleString()}` : String(value ?? "");
 }
 
-function getAdjustedChartData(filters: ReturnType<typeof useEcommerceFilters>) {
-  const multiplier =
-    filters.period === "year-to-date"
-      ? 0.9
-      : filters.period === "last-30-days"
-        ? 1.02
-        : filters.period === "last-month"
-          ? 0.94
-          : 1;
+function generateChartData(filters: ReturnType<typeof useEcommerceFilters>) {
+  const seed = hashString(filters.period + filters.channel + "chart");
+  const random = seededRandom(seed);
 
-  const channelMultiplier =
-    filters.channel === "all-channels"
-      ? 1
-      : filters.channel === "online-store"
-        ? 0.5
-        : filters.channel === "marketplace"
-          ? 0.35
-          : filters.channel === "social"
-            ? 0.2
-            : 0.15;
+  const currentMonth = new Date();
+  currentMonth.setDate(1);
 
-  return revenueOverviewData.map((item) => ({
-    ...item,
-    revenue: Math.round(item.revenue * multiplier * channelMultiplier),
-    profit: Math.round(item.profit * multiplier * channelMultiplier),
-  }));
+  const baseRevenueByChannel: Record<string, number> = {
+    "all-channels": 6500,
+    "online-store": 4200,
+    marketplace: 3200,
+    social: 2800,
+    retail: 1800,
+  };
+
+  const baseRevenue = baseRevenueByChannel[filters.channel] || 5000;
+
+  const trendMultipliers = {
+    "this-month": { start: 0.9, end: 1.1, volatility: 0.15 },
+    "last-month": { start: 0.95, end: 1.05, volatility: 0.1 },
+    "last-30-days": { start: 0.85, end: 1.15, volatility: 0.2 },
+    "year-to-date": { start: 0.7, end: 1.3, volatility: 0.25 },
+  };
+
+  const trend = trendMultipliers[filters.period] || trendMultipliers["this-month"];
+
+  const revenueBucketValues: number[][] = [];
+  const totalMonths = 12;
+
+  for (let monthIdx = 0; monthIdx < totalMonths; monthIdx++) {
+    const monthProgress = monthIdx / (totalMonths - 1);
+    const monthTrend = trend.start + monthProgress * (trend.end - trend.start);
+    const monthValues: number[] = [];
+
+    for (let bucketIdx = 0; bucketIdx < 6; bucketIdx++) {
+      const bucketProgress = bucketIdx / 5;
+      const seasonalBoost = 0.9 + Math.sin(bucketProgress * Math.PI) * 0.2;
+      const randomVariation = 0.85 + random() * 0.3;
+      const revenue = Math.round(baseRevenue * monthTrend * seasonalBoost * randomVariation);
+      monthValues.push(revenue);
+    }
+
+    revenueBucketValues.push(monthValues);
+  }
+
+  return revenueBucketValues.flatMap((values, index) => {
+    const monthDate = new Date(currentMonth);
+    monthDate.setMonth(currentMonth.getMonth() - (totalMonths - 1 - index));
+    const monthLabel = `${monthFormatter.format(monthDate)} ${String(monthDate.getFullYear()).slice(-2)}`;
+
+    return values.map((revenue, bucketIndex) => {
+      const profitMargin = 0.22 + random() * 0.08;
+      return {
+        period: `${monthLabel} ${revenueBucketRanges[bucketIndex]}`,
+        profit: Math.round(revenue * profitMargin),
+        revenue,
+      };
+    });
+  });
 }
 
 export function KpiStrip() {
   const filters = useEcommerceFilters();
 
-  const adjustedChartData = useMemo(() => getAdjustedChartData(filters), [filters]);
+  const adjustedChartData = useMemo(() => generateChartData(filters), [filters]);
+
+  const kpiData = useMemo(() => generateKPIData(filters), [filters]);
+
+  const avgOrderValue = Math.round(kpiData.revenue / kpiData.orders);
+  const avgOrderChange = Math.round((Math.random() * 10 - 5) * 10) / 10;
 
   const adjustedData = useMemo(() => {
-    const totalSales = adjustNumber(48560, filters);
-    const totalOrders = adjustNumber(379, filters);
-    const customerGrowth = adjustNumber(820, filters);
-    const avgOrder = adjustNumber(128, filters);
-    const returnRequests = adjustNumber(18, filters);
-    const stockAccuracy = Math.min(99, Math.max(90, 97 + Math.floor(Math.random() * 3)));
-
     return {
-      totalSales: `$${totalSales.toLocaleString()}`,
-      totalOrders: totalOrders.toLocaleString(),
-      customerGrowth: customerGrowth.toLocaleString(),
-      avgOrder: `$${avgOrder}`,
-      returnRequests: returnRequests.toLocaleString(),
-      stockAccuracy: `${stockAccuracy}%`,
-      salesChange: adjustPercentChange(15.8, filters),
-      ordersChange: adjustPercentChange(8.3, filters),
-      customerChange: adjustPercentChange(12.5, filters),
-      avgOrderChange: `-$${adjustNumber(420, filters) / 100}`,
-      returnsChange: adjustPercentChange(0.6, filters),
-      stockChange: `+${(2.4 * (0.8 + Math.random() * 0.4)).toFixed(1)} pts`,
+      totalSales: formatCurrency(kpiData.revenue),
+      totalOrders: kpiData.orders.toLocaleString(),
+      customerGrowth: kpiData.customers.toLocaleString(),
+      avgOrder: formatCurrency(avgOrderValue),
+      returnRequests: Math.round(kpiData.orders * 0.045).toLocaleString(),
+      stockAccuracy: `${Math.min(99, Math.max(92, 95 + Math.round(Math.random() * 4)))}%`,
+      salesChange: formatPercent(kpiData.revenueChange),
+      ordersChange: formatPercent(kpiData.ordersChange),
+      customerChange: formatPercent(kpiData.customersChange),
+      avgOrderChange: `${avgOrderChange >= 0 ? "+" : ""}$${Math.abs(avgOrderChange)}`,
+      returnsChange: formatPercent(Math.round(Math.random() * 6 - 2)),
+      stockChange: `+${(1.5 + Math.random() * 2).toFixed(1)} pts`,
     };
-  }, [filters]);
+  }, [kpiData, avgOrderValue, avgOrderChange]);
+
+  const yAxisMax = useMemo(() => {
+    const maxRevenue = Math.max(...adjustedChartData.map((d) => d.revenue));
+    return Math.ceil((maxRevenue * 1.1) / 1000) * 1000;
+  }, [adjustedChartData]);
+
+  const yAxisMin = useMemo(() => {
+    const minRevenue = Math.min(...adjustedChartData.map((d) => d.revenue));
+    return Math.floor((minRevenue * 0.9) / 1000) * 1000;
+  }, [adjustedChartData]);
 
   return (
     <div className="h-full overflow-hidden rounded-xl bg-card ring-1 ring-foreground/10 xl:col-span-12">
@@ -163,7 +166,11 @@ export function KpiStrip() {
               </CardHeader>
               <CardContent>
                 <div className="text-sm">
-                  <span className="text-green-700 dark:text-green-300">{adjustedData.salesChange}</span>
+                  <span
+                    className={kpiData.revenueChange >= 0 ? "text-green-700 dark:text-green-300" : "text-destructive"}
+                  >
+                    {adjustedData.salesChange}
+                  </span>
                   <span className="text-muted-foreground"> vs last week</span>
                 </div>
               </CardContent>
@@ -181,7 +188,11 @@ export function KpiStrip() {
               </CardHeader>
               <CardContent>
                 <div className="text-sm">
-                  <span className="text-green-700 dark:text-green-300">{adjustedData.ordersChange}</span>
+                  <span
+                    className={kpiData.ordersChange >= 0 ? "text-green-700 dark:text-green-300" : "text-destructive"}
+                  >
+                    {adjustedData.ordersChange}
+                  </span>
                   <span className="text-muted-foreground"> vs last week</span>
                 </div>
               </CardContent>
@@ -199,7 +210,11 @@ export function KpiStrip() {
               </CardHeader>
               <CardContent>
                 <div className="text-sm">
-                  <span className="text-green-700 dark:text-green-300">{adjustedData.customerChange}</span>
+                  <span
+                    className={kpiData.customersChange >= 0 ? "text-green-700 dark:text-green-300" : "text-destructive"}
+                  >
+                    {adjustedData.customerChange}
+                  </span>
                   <span className="text-muted-foreground"> vs last month</span>
                 </div>
               </CardContent>
@@ -217,7 +232,9 @@ export function KpiStrip() {
               </CardHeader>
               <CardContent>
                 <div className="text-sm">
-                  <span className="text-destructive">{adjustedData.avgOrderChange}</span>
+                  <span className={avgOrderChange >= 0 ? "text-green-700 dark:text-green-300" : "text-destructive"}>
+                    {adjustedData.avgOrderChange}
+                  </span>
                   <span className="text-muted-foreground"> vs last week</span>
                 </div>
               </CardContent>
@@ -298,8 +315,8 @@ export function KpiStrip() {
                     tickMargin={8}
                     tickFormatter={(value) => formatMonthTick(String(value))}
                   />
-                  <YAxis yAxisId="revenue" hide domain={[3000, 10_000]} />
-                  <YAxis yAxisId="profit" hide domain={[0, 6000]} />
+                  <YAxis yAxisId="revenue" hide domain={[yAxisMin, yAxisMax]} />
+                  <YAxis yAxisId="profit" hide domain={[0, Math.ceil(yAxisMax * 0.35)]} />
                   <ChartTooltip
                     content={
                       <ChartTooltipContent

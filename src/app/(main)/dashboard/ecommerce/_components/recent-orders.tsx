@@ -31,7 +31,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { useSessionStorageState } from "@/hooks/use-session-storage-state";
 
-import { adjustNumber } from "./ecommerce-filter-utils";
+import { formatCurrency, hashString, seededRandom } from "./ecommerce-filter-utils";
 import { useEcommerceFilters } from "./ecommerce-filters-context";
 import { recentOrdersColumns } from "./recent-orders-table/columns";
 import recentOrdersData from "./recent-orders-table/data.json";
@@ -45,16 +45,39 @@ import { type OrderFilter, type OrderRow, orderFilters } from "./recent-orders-t
 const STORAGE_PREFIX = "ecommerce-recent-orders";
 const recentOrders = recentOrdersData as OrderRow[];
 
+const BASE_ORDER_MULTIPLIERS: Record<string, number> = {
+  "all-channels": 1.0,
+  "online-store": 0.75,
+  marketplace: 0.55,
+  social: 0.4,
+  retail: 0.35,
+};
+
+const PERIOD_ORDER_MULTIPLIERS: Record<string, number> = {
+  "this-month": 1.0,
+  "last-month": 0.94,
+  "last-30-days": 1.02,
+  "year-to-date": 12.0,
+};
+
 export function RecentOrders() {
   const filters = useEcommerceFilters();
 
   const adjustedOrders = React.useMemo(() => {
-    return recentOrders.map((order) => {
+    const seed = hashString(filters.period + filters.channel + "orders");
+    const random = seededRandom(seed);
+
+    const baseMultiplier = BASE_ORDER_MULTIPLIERS[filters.channel] || 1.0;
+    const periodMultiplier = PERIOD_ORDER_MULTIPLIERS[filters.period] || 1.0;
+
+    return recentOrders.map((order, idx) => {
       const totalNum = parseInt(order.total.replace("$", "").replace(",", "").replace(".00", ""), 10);
-      const adjustedTotal = adjustNumber(totalNum, filters);
+      const orderVariation = 0.75 + random() * 0.5;
+      const positionFactor = 1 - (idx / recentOrders.length) * 0.3;
+      const adjustedTotal = Math.round(totalNum * baseMultiplier * periodMultiplier * orderVariation * positionFactor);
       return {
         ...order,
-        total: `$${adjustedTotal.toLocaleString()}.00`,
+        total: formatCurrency(adjustedTotal) + ".00",
       };
     });
   }, [filters]);
