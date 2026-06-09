@@ -1,7 +1,5 @@
 import type { ReactNode } from "react";
 
-import { headers } from "next/headers";
-
 import type { Metadata } from "next";
 
 import { Toaster } from "@/components/ui/sonner";
@@ -20,31 +18,26 @@ export const metadata: Metadata = {
   description: APP_CONFIG.meta.description,
 };
 
-function getResolvedThemeMode(
-  themeMode: "light" | "dark" | "system",
-  systemPreference: ResolvedThemeMode | null,
-): ResolvedThemeMode {
-  if (themeMode === "system") {
-    return systemPreference ?? "light";
-  }
-  return themeMode;
-}
-
 export default async function RootLayout({ children }: Readonly<{ children: ReactNode }>) {
   const prefs = await getAllPreferences(FONT_KEYS);
 
-  const headerStore = await headers();
-  const systemThemeHeader = headerStore.get("sec-ch-prefers-color-scheme");
-  const systemPreference: ResolvedThemeMode | null =
-    systemThemeHeader === "dark" ? "dark" : systemThemeHeader === "light" ? "light" : null;
+  let htmlClassName = "";
+  let colorScheme: ResolvedThemeMode | undefined;
+  let resolvedThemeMode: ResolvedThemeMode = "light";
 
-  const resolvedThemeMode = getResolvedThemeMode(prefs.themeMode, systemPreference);
-  const isDark = resolvedThemeMode === "dark";
+  if (prefs.themeMode === "dark") {
+    htmlClassName = "dark";
+    colorScheme = "dark";
+    resolvedThemeMode = "dark";
+  } else if (prefs.themeMode === "light") {
+    colorScheme = "light";
+    resolvedThemeMode = "light";
+  }
 
   return (
     <html
       lang="en"
-      className={isDark ? "dark" : ""}
+      className={htmlClassName}
       data-theme-mode={prefs.themeMode}
       data-theme-preset={prefs.themePreset}
       data-content-layout={prefs.contentLayout}
@@ -52,7 +45,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
       data-sidebar-variant={prefs.sidebarVariant}
       data-sidebar-collapsible={prefs.sidebarCollapsible}
       data-font={prefs.font}
-      style={{ colorScheme: resolvedThemeMode }}
+      style={colorScheme ? { colorScheme } : undefined}
       suppressHydrationWarning
     >
       <head>
