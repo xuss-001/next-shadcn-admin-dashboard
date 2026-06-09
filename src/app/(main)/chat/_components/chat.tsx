@@ -45,6 +45,7 @@ export function Chat({ conversations }: ChatProps) {
           onSelectConversation={() => setShowThread(true)}
         />
         <ChatThread
+          conversationId={activeConversation.id}
           contact={activeConversation.contact}
           messages={activeConversation.messages}
           showBackButton={isMobile}

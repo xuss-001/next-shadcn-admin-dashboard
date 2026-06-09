@@ -21,7 +21,7 @@ interface ChatConversationListProps {
 }
 
 export function ChatConversationList({ conversations, onSelectConversation, className }: ChatConversationListProps) {
-  const [chat, setChat] = useChat();
+  const [chat, , , , unreadState, , selectConversation] = useChat();
   const { state, toggleSidebar } = useSidebar();
   const isCollapsed = state === "collapsed";
 
@@ -95,6 +95,7 @@ export function ChatConversationList({ conversations, onSelectConversation, clas
                   <div className="flex flex-col gap-1 px-2">
                     {conversations.map((conversation) => {
                       const isSelected = chat.selected === conversation.id;
+                      const convUnread = unreadState[conversation.id] ?? { isUnread: false, unreadCount: 0 };
 
                       return (
                         <button
@@ -106,7 +107,7 @@ export function ChatConversationList({ conversations, onSelectConversation, clas
                           )}
                           onClick={(event) => {
                             event.currentTarget.blur();
-                            setChat({ selected: conversation.id });
+                            selectConversation(conversation.id);
                             onSelectConversation?.(conversation);
                           }}
                         >
@@ -147,9 +148,9 @@ export function ChatConversationList({ conversations, onSelectConversation, clas
                                     </div>
                                   )}
 
-                                  {conversation.isUnread && (
+                                  {convUnread.isUnread && (
                                     <div className="grid size-5 place-items-center rounded-full bg-primary/90 text-primary-foreground text-xs">
-                                      {conversation.unreadCount}
+                                      {convUnread.unreadCount}
                                     </div>
                                   )}
                                 </div>

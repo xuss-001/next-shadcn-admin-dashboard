@@ -35,8 +35,10 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { cn, getInitials } from "@/lib/utils";
 
 import { type Contact, currentUser, type Message } from "./data";
+import { useChat } from "./use-chat";
 
 interface ChatThreadProps {
+  conversationId: number;
   contact: Contact;
   messages: Message[];
   onOpenContact?: () => void;
@@ -45,7 +47,16 @@ interface ChatThreadProps {
   className?: string;
 }
 
-export function ChatThread({ contact, messages, onOpenContact, onBack, showBackButton, className }: ChatThreadProps) {
+export function ChatThread({
+  conversationId,
+  contact,
+  messages,
+  onOpenContact,
+  onBack,
+  showBackButton,
+  className,
+}: ChatThreadProps) {
+  const [, , drafts, setDraft] = useChat();
   return (
     <div className={cn("flex h-full flex-col py-3", className)}>
       <div className="flex flex-col gap-3">
@@ -195,10 +206,20 @@ export function ChatThread({ contact, messages, onOpenContact, onBack, showBackB
           </TabsList>
 
           <TabsContent value="reply" className="m-0">
-            <MessageComposer placeholder="Type your message..." />
+            <MessageComposer
+              placeholder="Type your message..."
+              conversationId={conversationId}
+              drafts={drafts}
+              setDraft={setDraft}
+            />
           </TabsContent>
           <TabsContent value="note" className="m-0">
-            <MessageComposer placeholder="Write an internal note..." />
+            <MessageComposer
+              placeholder="Write an internal note..."
+              conversationId={conversationId}
+              drafts={drafts}
+              setDraft={setDraft}
+            />
           </TabsContent>
         </Tabs>
       </div>
@@ -206,10 +227,27 @@ export function ChatThread({ contact, messages, onOpenContact, onBack, showBackB
   );
 }
 
-function MessageComposer({ placeholder }: { placeholder: string }) {
+function MessageComposer({
+  placeholder,
+  conversationId,
+  drafts,
+  setDraft,
+}: {
+  placeholder: string;
+  conversationId: number;
+  drafts: Record<number, string>;
+  setDraft: (conversationId: number, draft: string) => void;
+}) {
+  const draft = drafts[conversationId] ?? "";
+
   return (
     <div className="flex flex-col gap-4 px-3 pb-2">
-      <Textarea placeholder={placeholder} className="border-0 px-0 py-0.5 text-sm shadow-none focus-visible:ring-0" />
+      <Textarea
+        placeholder={placeholder}
+        value={draft}
+        onChange={(e) => setDraft(conversationId, e.target.value)}
+        className="border-0 px-0 py-0.5 text-sm shadow-none focus-visible:ring-0"
+      />
 
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-1">
