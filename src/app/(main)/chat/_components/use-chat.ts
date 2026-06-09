@@ -17,6 +17,7 @@ type ChatStore = {
 };
 
 const DRAFTS_STORAGE_KEY = "chat-drafts";
+const UNREAD_STORAGE_KEY = "chat-unread-state";
 
 function loadDraftsFromStorage(): Record<Conversation["id"], string> {
   if (typeof window === "undefined") {
@@ -55,13 +56,49 @@ function saveDraftsToStorage(drafts: Record<Conversation["id"], string>): void {
   }
 }
 
-const initialUnreadState = conversations.reduce<Record<Conversation["id"], { isUnread: boolean; unreadCount: number }>>(
-  (acc, conv) => {
+function loadUnreadStateFromStorage(): Record<Conversation["id"], { isUnread: boolean; unreadCount: number }> {
+  if (typeof window === "undefined") {
+    return conversations.reduce<Record<Conversation["id"], { isUnread: boolean; unreadCount: number }>>((acc, conv) => {
+      acc[conv.id] = { isUnread: conv.isUnread, unreadCount: conv.unreadCount };
+      return acc;
+    }, {});
+  }
+
+  try {
+    const stored = window.sessionStorage.getItem(UNREAD_STORAGE_KEY);
+    if (stored) {
+      const parsed = JSON.parse(stored) as Record<string, { isUnread: boolean; unreadCount: number }>;
+      return conversations.reduce<Record<Conversation["id"], { isUnread: boolean; unreadCount: number }>>(
+        (acc, conv) => {
+          acc[conv.id] = parsed[conv.id] ?? { isUnread: conv.isUnread, unreadCount: conv.unreadCount };
+          return acc;
+        },
+        {},
+      );
+    }
+  } catch {
+    // ignore
+  }
+
+  return conversations.reduce<Record<Conversation["id"], { isUnread: boolean; unreadCount: number }>>((acc, conv) => {
     acc[conv.id] = { isUnread: conv.isUnread, unreadCount: conv.unreadCount };
     return acc;
-  },
-  {},
-);
+  }, {});
+}
+
+function saveUnreadStateToStorage(
+  unreadState: Record<Conversation["id"], { isUnread: boolean; unreadCount: number }>,
+): void {
+  if (typeof window === "undefined") return;
+
+  try {
+    window.sessionStorage.setItem(UNREAD_STORAGE_KEY, JSON.stringify(unreadState));
+  } catch {
+    // ignore
+  }
+}
+
+const initialUnreadState = loadUnreadStateFromStorage();
 
 const initialDrafts = loadDraftsFromStorage();
 
@@ -79,20 +116,26 @@ const useChatStore = create<ChatStore>((set) => ({
       return { drafts: newDrafts };
     }),
   clearUnread: (conversationId) =>
-    set((state) => ({
-      unreadState: {
+    set((state) => {
+      const newUnreadState = {
         ...state.unreadState,
         [conversationId]: { isUnread: false, unreadCount: 0 },
-      },
-    })),
+      };
+      saveUnreadStateToStorage(newUnreadState);
+      return { unreadState: newUnreadState };
+    }),
   selectConversation: (conversationId) =>
-    set((state) => ({
-      chat: { selected: conversationId },
-      unreadState: {
+    set((state) => {
+      const newUnreadState = {
         ...state.unreadState,
         [conversationId]: { isUnread: false, unreadCount: 0 },
-      },
-    })),
+      };
+      saveUnreadStateToStorage(newUnreadState);
+      return {
+        chat: { selected: conversationId },
+        unreadState: newUnreadState,
+      };
+    }),
 }));
 
 export function useChat() {
