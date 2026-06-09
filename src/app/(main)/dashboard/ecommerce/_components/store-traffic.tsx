@@ -16,6 +16,9 @@ import {
   ChartTooltipContent,
 } from "@/components/ui/chart";
 
+import { adjustNumber } from "./ecommerce-filter-utils";
+import { useEcommerceFilters } from "./ecommerce-filters-context";
+
 const trafficIntervalMinutes = 15;
 
 const trafficPoints = [
@@ -142,9 +145,44 @@ function formatTrafficTooltipLabel(value: string) {
 }
 
 export function StoreTraffic() {
-  const trafficData = useMemo(getTrafficData, []);
-  const firstTrafficTimestamp = trafficData[0].timestamp;
-  const lastTrafficTimestamp = trafficData.at(-1)?.timestamp ?? "";
+  const filters = useEcommerceFilters();
+  const baseTrafficData = useMemo(getTrafficData, []);
+
+  const adjustedTrafficData = useMemo(() => {
+    const multiplier =
+      filters.period === "year-to-date"
+        ? 0.95
+        : filters.period === "last-30-days"
+          ? 1.03
+          : filters.period === "last-month"
+            ? 0.92
+            : 1;
+
+    const channelMultiplier =
+      filters.channel === "all-channels"
+        ? 1
+        : filters.channel === "online-store"
+          ? 0.6
+          : filters.channel === "marketplace"
+            ? 0.3
+            : filters.channel === "social"
+              ? 0.25
+              : 0.1;
+
+    return baseTrafficData.map((item) => ({
+      ...item,
+      visitors: Math.round(item.visitors * multiplier * channelMultiplier),
+      anomalies: Math.max(0, Math.round(item.anomalies * multiplier * channelMultiplier)),
+    }));
+  }, [baseTrafficData, filters]);
+
+  const totalVisits = useMemo(
+    () => adjustedTrafficData.reduce((sum, item) => sum + item.visitors, 0),
+    [adjustedTrafficData],
+  );
+
+  const firstTrafficTimestamp = adjustedTrafficData[0].timestamp;
+  const lastTrafficTimestamp = adjustedTrafficData.at(-1)?.timestamp ?? "";
 
   function formatTrafficTick(value: string) {
     if (value === firstTrafficTimestamp) {
@@ -159,7 +197,7 @@ export function StoreTraffic() {
       <CardHeader>
         <CardTitle className="font-normal text-muted-foreground text-sm">Store Traffic</CardTitle>
         <CardDescription className="text-foreground text-xl tabular-nums leading-none tracking-tight">
-          12.9K visits
+          {(totalVisits / 1000).toFixed(1)}K visits
         </CardDescription>
         <CardAction>
           <ArrowUpRight className="size-4" />
@@ -168,7 +206,7 @@ export function StoreTraffic() {
 
       <CardContent>
         <ChartContainer config={trafficConfig} className="h-54 w-full">
-          <AreaChart accessibilityLayer data={trafficData} margin={{ bottom: 0, left: 0, right: 0, top: 8 }}>
+          <AreaChart accessibilityLayer data={adjustedTrafficData} margin={{ bottom: 0, left: 0, right: 0, top: 8 }}>
             <defs>
               <linearGradient id="fillVisitors" x1="0" x2="0" y1="0" y2="1">
                 <stop offset="5%" stopColor="var(--color-visitors)" stopOpacity={0.28} />
@@ -183,7 +221,7 @@ export function StoreTraffic() {
               tickFormatter={formatTrafficTick}
               tickLine={false}
               tickMargin={10}
-              ticks={[trafficData[0].timestamp, trafficData.at(-1)?.timestamp ?? ""]}
+              ticks={[adjustedTrafficData[0].timestamp, adjustedTrafficData.at(-1)?.timestamp ?? ""]}
             />
             <YAxis axisLine={false} domain={[0, 650]} tickLine={false} tickMargin={6} width={36} yAxisId="traffic" />
             <ChartTooltip

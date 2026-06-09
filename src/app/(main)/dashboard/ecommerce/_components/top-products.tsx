@@ -1,7 +1,14 @@
+"use client";
+
+import { useMemo } from "react";
+
 import { ArrowUpRight } from "lucide-react";
 
 import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
+
+import { adjustCurrency, adjustNumber } from "./ecommerce-filter-utils";
+import { useEcommerceFilters } from "./ecommerce-filters-context";
 
 const categories = [
   {
@@ -43,12 +50,38 @@ const products = [
 ] as const;
 
 export function TopProducts() {
+  const filters = useEcommerceFilters();
+
+  const adjustedProducts = useMemo(() => {
+    return products.map((p) => {
+      const salesNum = parseInt(p.sales.replace("$", "").replace(",", ""), 10);
+      const adjustedSales = adjustNumber(salesNum, filters);
+      return {
+        ...p,
+        sales: `$${adjustedSales.toLocaleString()}`,
+      };
+    });
+  }, [filters]);
+
+  const adjustedSalesPercent = useMemo(() => {
+    const basePercent = 73;
+    const multiplier =
+      filters.period === "year-to-date"
+        ? 1.02
+        : filters.period === "last-30-days"
+          ? 1.01
+          : filters.period === "last-month"
+            ? 0.98
+            : 1;
+    return Math.round(basePercent * multiplier);
+  }, [filters]);
+
   return (
     <Card className="h-full">
       <CardHeader>
         <CardTitle className="font-normal text-muted-foreground text-sm">Top Products</CardTitle>
         <CardDescription className="text-foreground text-xl tabular-nums leading-none tracking-tight">
-          73% of sales
+          {adjustedSalesPercent}% of sales
         </CardDescription>
         <CardAction>
           <ArrowUpRight className="size-4" />
@@ -88,7 +121,7 @@ export function TopProducts() {
           <div className="text-muted-foreground text-xs">Share</div>
           <div className="text-muted-foreground text-xs">Sales</div>
 
-          {products.map((product) => (
+          {adjustedProducts.map((product) => (
             <div className="contents text-sm" key={product.name}>
               <div className="min-w-0">
                 <div className="truncate font-medium">{product.name}</div>

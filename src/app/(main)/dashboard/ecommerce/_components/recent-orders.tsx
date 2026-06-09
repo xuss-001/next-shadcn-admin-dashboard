@@ -29,7 +29,10 @@ import {
 } from "@/components/ui/pagination";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { useSessionStorageState } from "@/hooks/use-session-storage-state";
 
+import { adjustNumber } from "./ecommerce-filter-utils";
+import { useEcommerceFilters } from "./ecommerce-filters-context";
 import { recentOrdersColumns } from "./recent-orders-table/columns";
 import recentOrdersData from "./recent-orders-table/data.json";
 import {
@@ -39,19 +42,36 @@ import {
 } from "./recent-orders-table/formatters";
 import { type OrderFilter, type OrderRow, orderFilters } from "./recent-orders-table/schema";
 
+const STORAGE_PREFIX = "ecommerce-recent-orders";
 const recentOrders = recentOrdersData as OrderRow[];
 
 export function RecentOrders() {
-  const [rowSelection, setRowSelection] = React.useState({});
-  const [sorting, setSorting] = React.useState<SortingState>([]);
-  const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
-  const [pagination, setPagination] = React.useState<PaginationState>({
+  const filters = useEcommerceFilters();
+
+  const adjustedOrders = React.useMemo(() => {
+    return recentOrders.map((order) => {
+      const totalNum = parseInt(order.total.replace("$", "").replace(",", "").replace(".00", ""), 10);
+      const adjustedTotal = adjustNumber(totalNum, filters);
+      return {
+        ...order,
+        total: `$${adjustedTotal.toLocaleString()}.00`,
+      };
+    });
+  }, [filters]);
+
+  const [rowSelection, setRowSelection] = useSessionStorageState(`${STORAGE_PREFIX}-row-selection`, {});
+  const [sorting, setSorting] = useSessionStorageState<SortingState>(`${STORAGE_PREFIX}-sorting`, []);
+  const [columnFilters, setColumnFilters] = useSessionStorageState<ColumnFiltersState>(
+    `${STORAGE_PREFIX}-column-filters`,
+    [],
+  );
+  const [pagination, setPagination] = useSessionStorageState<PaginationState>(`${STORAGE_PREFIX}-pagination`, {
     pageIndex: 0,
     pageSize: 10,
   });
 
   const table = useReactTable({
-    data: recentOrders,
+    data: adjustedOrders,
     columns: recentOrdersColumns,
     state: {
       rowSelection,

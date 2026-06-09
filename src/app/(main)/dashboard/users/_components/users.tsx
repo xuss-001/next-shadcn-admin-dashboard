@@ -22,20 +22,31 @@ import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/in
 import { Kbd } from "@/components/ui/kbd";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useSessionStorageState } from "@/hooks/use-session-storage-state";
 
 import { filters, type UserRow } from "./data";
 import { usersColumns } from "./users-columns";
 import { UsersTable } from "./users-table";
 
+const STORAGE_PREFIX = "users-table";
+
 export function Users({ users }: { users: UserRow[] }) {
-  const [rowSelection, setRowSelection] = React.useState({});
-  const [sorting, setSorting] = React.useState<SortingState>([{ id: "joinedDate", desc: true }]);
-  const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
-  const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({
-    search: false,
-    team: false,
-  });
-  const [pagination, setPagination] = React.useState<PaginationState>({
+  const [rowSelection, setRowSelection] = useSessionStorageState(`${STORAGE_PREFIX}-row-selection`, {});
+  const [sorting, setSorting] = useSessionStorageState<SortingState>(`${STORAGE_PREFIX}-sorting`, [
+    { id: "joinedDate", desc: true },
+  ]);
+  const [columnFilters, setColumnFilters] = useSessionStorageState<ColumnFiltersState>(
+    `${STORAGE_PREFIX}-column-filters`,
+    [],
+  );
+  const [columnVisibility, setColumnVisibility] = useSessionStorageState<VisibilityState>(
+    `${STORAGE_PREFIX}-column-visibility`,
+    {
+      search: false,
+      team: false,
+    },
+  );
+  const [pagination, setPagination] = useSessionStorageState<PaginationState>(`${STORAGE_PREFIX}-pagination`, {
     pageIndex: 0,
     pageSize: 10,
   });

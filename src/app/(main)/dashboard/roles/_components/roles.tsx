@@ -1,8 +1,6 @@
 "use client";
 "use no memo";
 
-import { useState } from "react";
-
 import {
   type ColumnFiltersState,
   getCoreRowModel,
@@ -18,14 +16,20 @@ import { Button } from "@/components/ui/button";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useSessionStorageState } from "@/hooks/use-session-storage-state";
 
 import { rolesColumns } from "./roles-table/columns";
 import type { Role } from "./roles-table/data";
 import { RolesTable } from "./roles-table/table";
 
+const STORAGE_PREFIX = "roles-table";
+
 export function Roles({ roles }: { roles: Role[] }) {
-  const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
-  const [pagination, setPagination] = useState<PaginationState>({
+  const [columnFilters, setColumnFilters] = useSessionStorageState<ColumnFiltersState>(
+    `${STORAGE_PREFIX}-column-filters`,
+    [],
+  );
+  const [pagination, setPagination] = useSessionStorageState<PaginationState>(`${STORAGE_PREFIX}-pagination`, {
     pageIndex: 0,
     pageSize: 12,
   });

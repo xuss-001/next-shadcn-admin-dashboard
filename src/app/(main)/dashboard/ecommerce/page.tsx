@@ -1,3 +1,5 @@
+"use client";
+
 import { format } from "date-fns";
 import { Settings2 } from "lucide-react";
 
@@ -6,6 +8,7 @@ import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectVa
 import { Separator } from "@/components/ui/separator";
 
 import { CustomerReviews } from "./_components/customer-reviews";
+import { EcommerceFiltersProvider, useEcommerceFilters } from "./_components/ecommerce-filters-context";
 import { Inventory } from "./_components/inventory";
 import { KpiStrip } from "./_components/kpi-strip";
 import { RecentOrders } from "./_components/recent-orders";
@@ -13,7 +16,8 @@ import { StoreTraffic } from "./_components/store-traffic";
 import { TopProducts } from "./_components/top-products";
 import { TrafficSources } from "./_components/traffic-sources";
 
-export default function Page() {
+function EcommerceContent() {
+  const { period, channel, setPeriod, setChannel } = useEcommerceFilters();
   const formattedDate = format(new Date(), "EEEE, do MMMM yyyy");
 
   return (
@@ -25,7 +29,7 @@ export default function Page() {
         </div>
 
         <div className="flex flex-wrap items-end justify-end gap-2 lg:w-fit">
-          <Select defaultValue="this-month">
+          <Select value={period} onValueChange={setPeriod}>
             <SelectTrigger className="w-34" id="ecommerce-period" size="sm">
               <SelectValue placeholder="This Month" />
             </SelectTrigger>
@@ -39,7 +43,7 @@ export default function Page() {
             </SelectContent>
           </Select>
 
-          <Select defaultValue="all-channels">
+          <Select value={channel} onValueChange={setChannel}>
             <SelectTrigger className="w-40" id="ecommerce-channel" size="sm">
               <SelectValue placeholder="All Channels" />
             </SelectTrigger>
@@ -84,5 +88,13 @@ export default function Page() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function Page() {
+  return (
+    <EcommerceFiltersProvider>
+      <EcommerceContent />
+    </EcommerceFiltersProvider>
   );
 }

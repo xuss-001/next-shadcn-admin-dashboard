@@ -1,5 +1,7 @@
 "use client";
 
+import { useMemo } from "react";
+
 import { ArrowUpRight } from "lucide-react";
 import { Bar, BarChart, LabelList, type LabelProps, XAxis, YAxis } from "recharts";
 import { siEbay, siGoogle, siMeta, siShopify, siTiktok } from "simple-icons";
@@ -7,6 +9,9 @@ import { siEbay, siGoogle, siMeta, siShopify, siTiktok } from "simple-icons";
 import { SimpleIcon } from "@/components/simple-icon";
 import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { type ChartConfig, ChartContainer } from "@/components/ui/chart";
+
+import { adjustNumber, adjustPercentChange } from "./ecommerce-filter-utils";
+import { useEcommerceFilters } from "./ecommerce-filters-context";
 
 const trafficSources = [
   {
@@ -46,6 +51,8 @@ const trafficSources = [
   },
 ] as const;
 
+type TrafficSource = (typeof trafficSources)[number];
+
 const trafficSourcesConfig = {
   share: {
     label: "Visits",
@@ -59,23 +66,25 @@ type IconLabelProps = {
   width?: number | string;
   x?: number | string;
   y?: number | string;
+  data?: TrafficSource[];
 };
 
 type SourceLabelProps = LabelProps & {
   index?: number;
   value?: number | string;
+  data?: TrafficSource[];
 };
 
 function getNumber(value: number | string | undefined) {
   return typeof value === "number" ? value : Number(value);
 }
 
-function TrafficSourceIconLabel({ height, index, width, x, y }: IconLabelProps) {
-  if (typeof index !== "number") {
+function TrafficSourceIconLabel({ height, index, width, x, y, data }: IconLabelProps) {
+  if (typeof index !== "number" || !data) {
     return null;
   }
 
-  const source = trafficSources[index];
+  const source = data[index];
   const xValue = getNumber(x);
   const yValue = getNumber(y);
   const widthValue = getNumber(width);
@@ -102,12 +111,12 @@ function TrafficSourceIconLabel({ height, index, width, x, y }: IconLabelProps) 
   );
 }
 
-function TrafficSourceNameLabel({ height, index, x, y }: SourceLabelProps) {
-  if (typeof index !== "number") {
+function TrafficSourceNameLabel({ height, index, x, y, data }: SourceLabelProps) {
+  if (typeof index !== "number" || !data) {
     return null;
   }
 
-  const source = trafficSources[index];
+  const source = data[index];
   const xValue = getNumber(x);
   const yValue = getNumber(y);
   const heightValue = getNumber(height);
@@ -153,13 +162,67 @@ function TrafficSourceChangeLabel({ height, value, y }: SourceLabelProps) {
   );
 }
 
+const CHANNEL_SOURCE_MAP: Record<string, string[]> = {
+  "all-channels": ["Meta", "Google", "Shopify", "TikTok", "eBay"],
+  "online-store": ["Shopify"],
+  marketplace: ["eBay", "Google"],
+  social: ["Meta", "TikTok"],
+  retail: ["Google"],
+};
+
 export function TrafficSources() {
+  const filters = useEcommerceFilters();
+
+  const adjustedData = useMemo((): TrafficSource[] => {
+    const allowedSources = CHANNEL_SOURCE_MAP[filters.channel] || CHANNEL_SOURCE_MAP["all-channels"];
+
+    const periodMultiplier =
+      filters.period === "year-to-date"
+        ? 0.9
+        : filters.period === "last-30-days"
+          ? 1.05
+          : filters.period === "last-month"
+            ? 0.93
+            : 1;
+
+    let filtered: TrafficSource[] = trafficSources
+      .filter((source) => allowedSources.includes(source.name))
+      .map((source) => {
+        const visitsNum = parseInt(source.visits.replace(",", ""), 10);
+        const adjustedVisits = adjustNumber(visitsNum, { ...filters, channel: "all-channels" });
+        const adjustedShare = Math.round(source.share * periodMultiplier * 0.9);
+        const changeNum = parseFloat(source.change);
+        const adjustedChange = adjustPercentChange(changeNum, { ...filters, channel: "all-channels" });
+        return {
+          ...source,
+          visits: adjustedVisits.toLocaleString(),
+          share: Math.min(100, Math.max(5, adjustedShare)),
+          change: adjustedChange,
+        } as TrafficSource;
+      });
+
+    const totalShare = filtered.reduce((sum, s) => sum + s.share, 0);
+    if (totalShare > 0 && totalShare !== 100) {
+      filtered = filtered.map((s, i) => ({
+        ...s,
+        share: i === 0 ? s.share + (100 - totalShare) : s.share,
+      })) as TrafficSource[];
+    }
+
+    return filtered;
+  }, [filters]);
+
+  const totalVisits = useMemo(
+    () => adjustedData.reduce((sum, s) => sum + parseInt(s.visits.replace(",", ""), 10), 0),
+    [adjustedData],
+  );
+
   return (
     <Card>
       <CardHeader>
         <CardTitle className="font-normal text-muted-foreground text-sm">Traffic Sources</CardTitle>
         <CardDescription className="text-foreground text-xl tabular-nums leading-none tracking-tight">
-          14.8K visits
+          {(totalVisits / 1000).toFixed(1)}K visits
         </CardDescription>
         <CardAction>
           <ArrowUpRight className="size-4" />
@@ -171,7 +234,7 @@ export function TrafficSources() {
           <BarChart
             accessibilityLayer
             barCategoryGap={12}
-            data={trafficSources}
+            data={adjustedData}
             layout="vertical"
             margin={{ bottom: 0, left: 100, right: 50, top: 0 }}
           >
@@ -209,8 +272,8 @@ export function TrafficSources() {
               strokeOpacity={0.1}
               strokeWidth={0.5}
             >
-              <LabelList content={<TrafficSourceNameLabel />} dataKey="name" />
-              <LabelList content={<TrafficSourceIconLabel />} dataKey="share" />
+              <LabelList content={<TrafficSourceNameLabel data={adjustedData} />} dataKey="name" />
+              <LabelList content={<TrafficSourceIconLabel data={adjustedData} />} dataKey="share" />
               <LabelList content={<TrafficSourceChangeLabel />} dataKey="change" />
             </Bar>
           </BarChart>

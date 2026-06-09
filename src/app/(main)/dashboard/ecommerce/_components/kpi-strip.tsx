@@ -1,11 +1,16 @@
 "use client";
 
+import { useMemo } from "react";
+
 import { format, parse } from "date-fns";
 import { ArrowUpRight, DollarSign, PackageCheck, ReceiptText, RotateCcw, ShoppingBag, Users } from "lucide-react";
 import { Area, Bar, CartesianGrid, ComposedChart, XAxis, YAxis } from "recharts";
 
 import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { type ChartConfig, ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
+
+import { adjustCurrency, adjustNumber, adjustPercentChange } from "./ecommerce-filter-utils";
+import { useEcommerceFilters } from "./ecommerce-filters-context";
 
 const revenueBucketRanges = ["01-05", "06-10", "11-15", "16-20", "21-25", "26-31"] as const;
 
@@ -84,7 +89,63 @@ function formatCurrencyTooltipValue(value: unknown) {
   return typeof value === "number" ? `$${value.toLocaleString()}` : String(value ?? "");
 }
 
+function getAdjustedChartData(filters: ReturnType<typeof useEcommerceFilters>) {
+  const multiplier =
+    filters.period === "year-to-date"
+      ? 0.9
+      : filters.period === "last-30-days"
+        ? 1.02
+        : filters.period === "last-month"
+          ? 0.94
+          : 1;
+
+  const channelMultiplier =
+    filters.channel === "all-channels"
+      ? 1
+      : filters.channel === "online-store"
+        ? 0.5
+        : filters.channel === "marketplace"
+          ? 0.35
+          : filters.channel === "social"
+            ? 0.2
+            : 0.15;
+
+  return revenueOverviewData.map((item) => ({
+    ...item,
+    revenue: Math.round(item.revenue * multiplier * channelMultiplier),
+    profit: Math.round(item.profit * multiplier * channelMultiplier),
+  }));
+}
+
 export function KpiStrip() {
+  const filters = useEcommerceFilters();
+
+  const adjustedChartData = useMemo(() => getAdjustedChartData(filters), [filters]);
+
+  const adjustedData = useMemo(() => {
+    const totalSales = adjustNumber(48560, filters);
+    const totalOrders = adjustNumber(379, filters);
+    const customerGrowth = adjustNumber(820, filters);
+    const avgOrder = adjustNumber(128, filters);
+    const returnRequests = adjustNumber(18, filters);
+    const stockAccuracy = Math.min(99, Math.max(90, 97 + Math.floor(Math.random() * 3)));
+
+    return {
+      totalSales: `$${totalSales.toLocaleString()}`,
+      totalOrders: totalOrders.toLocaleString(),
+      customerGrowth: customerGrowth.toLocaleString(),
+      avgOrder: `$${avgOrder}`,
+      returnRequests: returnRequests.toLocaleString(),
+      stockAccuracy: `${stockAccuracy}%`,
+      salesChange: adjustPercentChange(15.8, filters),
+      ordersChange: adjustPercentChange(8.3, filters),
+      customerChange: adjustPercentChange(12.5, filters),
+      avgOrderChange: `-$${adjustNumber(420, filters) / 100}`,
+      returnsChange: adjustPercentChange(0.6, filters),
+      stockChange: `+${(2.4 * (0.8 + Math.random() * 0.4)).toFixed(1)} pts`,
+    };
+  }, [filters]);
+
   return (
     <div className="h-full overflow-hidden rounded-xl bg-card ring-1 ring-foreground/10 xl:col-span-12">
       <div>
@@ -94,7 +155,7 @@ export function KpiStrip() {
               <CardHeader>
                 <CardTitle className="font-normal text-sm">Total Sales</CardTitle>
                 <CardDescription className="text-3xl text-foreground tabular-nums leading-none tracking-tight">
-                  $48,560.00
+                  {adjustedData.totalSales}
                 </CardDescription>
                 <CardAction className="grid size-6 place-items-center rounded-sm bg-muted">
                   <DollarSign className="size-3 text-foreground" />
@@ -102,7 +163,7 @@ export function KpiStrip() {
               </CardHeader>
               <CardContent>
                 <div className="text-sm">
-                  <span className="text-green-700 dark:text-green-300">+15.8%</span>
+                  <span className="text-green-700 dark:text-green-300">{adjustedData.salesChange}</span>
                   <span className="text-muted-foreground"> vs last week</span>
                 </div>
               </CardContent>
@@ -112,7 +173,7 @@ export function KpiStrip() {
               <CardHeader>
                 <CardTitle className="font-normal text-sm">Total Orders</CardTitle>
                 <CardDescription className="text-3xl text-foreground tabular-nums leading-none tracking-tight">
-                  379
+                  {adjustedData.totalOrders}
                 </CardDescription>
                 <CardAction className="grid size-6 place-items-center rounded-sm bg-muted">
                   <ShoppingBag className="size-3 text-foreground" />
@@ -120,7 +181,7 @@ export function KpiStrip() {
               </CardHeader>
               <CardContent>
                 <div className="text-sm">
-                  <span className="text-green-700 dark:text-green-300">+8.3%</span>
+                  <span className="text-green-700 dark:text-green-300">{adjustedData.ordersChange}</span>
                   <span className="text-muted-foreground"> vs last week</span>
                 </div>
               </CardContent>
@@ -130,7 +191,7 @@ export function KpiStrip() {
               <CardHeader>
                 <CardTitle className="font-normal text-sm">Customer Growth</CardTitle>
                 <CardDescription className="text-3xl text-foreground tabular-nums leading-none tracking-tight">
-                  820
+                  {adjustedData.customerGrowth}
                 </CardDescription>
                 <CardAction className="grid size-6 place-items-center rounded-sm bg-muted">
                   <Users className="size-3 text-foreground" />
@@ -138,7 +199,7 @@ export function KpiStrip() {
               </CardHeader>
               <CardContent>
                 <div className="text-sm">
-                  <span className="text-green-700 dark:text-green-300">+12.5%</span>
+                  <span className="text-green-700 dark:text-green-300">{adjustedData.customerChange}</span>
                   <span className="text-muted-foreground"> vs last month</span>
                 </div>
               </CardContent>
@@ -148,7 +209,7 @@ export function KpiStrip() {
               <CardHeader>
                 <CardTitle className="font-normal text-sm">Average Order</CardTitle>
                 <CardDescription className="text-3xl text-foreground tabular-nums leading-none tracking-tight">
-                  $128
+                  {adjustedData.avgOrder}
                 </CardDescription>
                 <CardAction className="grid size-6 place-items-center rounded-sm bg-muted">
                   <ReceiptText className="size-3 text-foreground" />
@@ -156,7 +217,7 @@ export function KpiStrip() {
               </CardHeader>
               <CardContent>
                 <div className="text-sm">
-                  <span className="text-destructive">-$4.20</span>
+                  <span className="text-destructive">{adjustedData.avgOrderChange}</span>
                   <span className="text-muted-foreground"> vs last week</span>
                 </div>
               </CardContent>
@@ -166,7 +227,7 @@ export function KpiStrip() {
               <CardHeader>
                 <CardTitle className="font-normal text-sm">Return Requests</CardTitle>
                 <CardDescription className="text-3xl text-foreground tabular-nums leading-none tracking-tight">
-                  18
+                  {adjustedData.returnRequests}
                 </CardDescription>
                 <CardAction className="grid size-6 place-items-center rounded-sm bg-muted">
                   <RotateCcw className="size-3 text-foreground" />
@@ -174,7 +235,7 @@ export function KpiStrip() {
               </CardHeader>
               <CardContent>
                 <div className="text-sm">
-                  <span className="text-destructive">+0.6%</span>
+                  <span className="text-destructive">{adjustedData.returnsChange}</span>
                   <span className="text-muted-foreground"> vs last month</span>
                 </div>
               </CardContent>
@@ -184,7 +245,7 @@ export function KpiStrip() {
               <CardHeader>
                 <CardTitle className="font-normal text-sm">Stock Accuracy</CardTitle>
                 <CardDescription className="text-3xl text-foreground tabular-nums leading-none tracking-tight">
-                  97%
+                  {adjustedData.stockAccuracy}
                 </CardDescription>
                 <CardAction className="grid size-6 place-items-center rounded-sm bg-muted">
                   <PackageCheck className="size-3 text-foreground" />
@@ -192,7 +253,7 @@ export function KpiStrip() {
               </CardHeader>
               <CardContent>
                 <div className="text-sm">
-                  <span className="text-green-700 dark:text-green-300">+2.4 pts</span>
+                  <span className="text-green-700 dark:text-green-300">{adjustedData.stockChange}</span>
                   <span className="text-muted-foreground"> vs last audit</span>
                 </div>
               </CardContent>
@@ -211,7 +272,7 @@ export function KpiStrip() {
               <ChartContainer config={revenueOverviewConfig} className="h-74 w-full">
                 <ComposedChart
                   accessibilityLayer
-                  data={revenueOverviewData}
+                  data={adjustedChartData}
                   margin={{ bottom: 0, left: 0, right: 0, top: 0 }}
                 >
                   <defs>

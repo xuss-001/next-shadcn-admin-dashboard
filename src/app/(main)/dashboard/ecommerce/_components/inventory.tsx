@@ -1,5 +1,7 @@
 "use client";
 
+import { useMemo } from "react";
+
 import { ArrowUpRight, PackageCheck, PackageX, TriangleAlert } from "lucide-react";
 import { Label, Pie, PieChart } from "recharts";
 
@@ -7,40 +9,10 @@ import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle }
 import { type ChartConfig, ChartContainer } from "@/components/ui/chart";
 import { Separator } from "@/components/ui/separator";
 
-const chartData = [{ month: "current", "in-stock": 760, "low-stock": 320, "out-of-stock": 160 }];
-const totalUnits = chartData[0]["in-stock"] + chartData[0]["low-stock"] + chartData[0]["out-of-stock"];
-const availablePercent = Math.round((chartData[0]["in-stock"] / totalUnits) * 100);
-const gaugeSegmentCount = 32;
-const inStockSegments = Math.round((chartData[0]["in-stock"] / totalUnits) * gaugeSegmentCount);
-const lowStockSegments = Math.round((chartData[0]["low-stock"] / totalUnits) * gaugeSegmentCount);
-const gaugeSegments = Array.from({ length: gaugeSegmentCount }, (_, index) => {
-  const status =
-    index < inStockSegments ? "in-stock" : index < inStockSegments + lowStockSegments ? "low-stock" : "out-of-stock";
+import { adjustNumber } from "./ecommerce-filter-utils";
+import { useEcommerceFilters } from "./ecommerce-filters-context";
 
-  return {
-    fill: `var(--color-${status})`,
-    id: `segment-${index + 1}`,
-    status,
-    value: 1,
-  };
-});
-const inventorySummary = [
-  {
-    icon: PackageCheck,
-    label: "In stock",
-    value: chartData[0]["in-stock"],
-  },
-  {
-    icon: TriangleAlert,
-    label: "Low stock",
-    value: chartData[0]["low-stock"],
-  },
-  {
-    icon: PackageX,
-    label: "Out",
-    value: chartData[0]["out-of-stock"],
-  },
-] as const;
+const baseChartData = [{ month: "current", "in-stock": 760, "low-stock": 320, "out-of-stock": 160 }];
 
 const chartConfig = {
   "in-stock": {
@@ -57,7 +29,57 @@ const chartConfig = {
   },
 } satisfies ChartConfig;
 
+const gaugeSegmentCount = 32;
+
 export function Inventory() {
+  const filters = useEcommerceFilters();
+
+  const { availablePercent, gaugeSegments, inventorySummary } = useMemo(() => {
+    const inStock = adjustNumber(baseChartData[0]["in-stock"], filters);
+    const lowStock = adjustNumber(baseChartData[0]["low-stock"], filters);
+    const outOfStock = adjustNumber(baseChartData[0]["out-of-stock"], filters);
+    const total = inStock + lowStock + outOfStock;
+    const available = total > 0 ? Math.round((inStock / total) * 100) : 0;
+
+    const inStockSegs = Math.round((inStock / total) * gaugeSegmentCount);
+    const lowStockSegs = Math.round((lowStock / total) * gaugeSegmentCount);
+    const segs = Array.from({ length: gaugeSegmentCount }, (_, index) => {
+      const status =
+        index < inStockSegs ? "in-stock" : index < inStockSegs + lowStockSegs ? "low-stock" : "out-of-stock";
+
+      return {
+        fill: `var(--color-${status})`,
+        id: `segment-${index + 1}`,
+        status,
+        value: 1,
+      };
+    });
+
+    const summary = [
+      {
+        icon: PackageCheck,
+        label: "In stock",
+        value: inStock,
+      },
+      {
+        icon: TriangleAlert,
+        label: "Low stock",
+        value: lowStock,
+      },
+      {
+        icon: PackageX,
+        label: "Out",
+        value: outOfStock,
+      },
+    ] as const;
+
+    return {
+      availablePercent: available,
+      gaugeSegments: segs,
+      inventorySummary: summary,
+    };
+  }, [filters]);
+
   return (
     <Card className="h-full">
       <CardHeader>
