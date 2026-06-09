@@ -1,6 +1,8 @@
 import { create } from "zustand";
 
-import { type Conversation, conversations } from "./data";
+import { loadDrafts, loadUnreadState, saveDrafts, saveUnreadState } from "./chat-storage";
+import type { Conversation } from "./data";
+import { conversations } from "./data";
 
 type Config = {
   selected: Conversation["id"] | null;
@@ -16,103 +18,17 @@ type ChatStore = {
   selectConversation: (conversationId: Conversation["id"]) => void;
 };
 
-const DRAFTS_STORAGE_KEY = "chat-drafts";
-const UNREAD_STORAGE_KEY = "chat-unread-state";
-
-function loadDraftsFromStorage(): Record<Conversation["id"], string> {
-  if (typeof window === "undefined") {
-    return conversations.reduce<Record<Conversation["id"], string>>((acc, conv) => {
-      acc[conv.id] = "";
-      return acc;
-    }, {});
-  }
-
-  try {
-    const stored = window.sessionStorage.getItem(DRAFTS_STORAGE_KEY);
-    if (stored) {
-      const parsed = JSON.parse(stored) as Record<string, string>;
-      return conversations.reduce<Record<Conversation["id"], string>>((acc, conv) => {
-        acc[conv.id] = parsed[conv.id] ?? "";
-        return acc;
-      }, {});
-    }
-  } catch {
-    // ignore
-  }
-
-  return conversations.reduce<Record<Conversation["id"], string>>((acc, conv) => {
-    acc[conv.id] = "";
-    return acc;
-  }, {});
-}
-
-function saveDraftsToStorage(drafts: Record<Conversation["id"], string>): void {
-  if (typeof window === "undefined") return;
-
-  try {
-    window.sessionStorage.setItem(DRAFTS_STORAGE_KEY, JSON.stringify(drafts));
-  } catch {
-    // ignore
-  }
-}
-
-function loadUnreadStateFromStorage(): Record<Conversation["id"], { isUnread: boolean; unreadCount: number }> {
-  if (typeof window === "undefined") {
-    return conversations.reduce<Record<Conversation["id"], { isUnread: boolean; unreadCount: number }>>((acc, conv) => {
-      acc[conv.id] = { isUnread: conv.isUnread, unreadCount: conv.unreadCount };
-      return acc;
-    }, {});
-  }
-
-  try {
-    const stored = window.sessionStorage.getItem(UNREAD_STORAGE_KEY);
-    if (stored) {
-      const parsed = JSON.parse(stored) as Record<string, { isUnread: boolean; unreadCount: number }>;
-      return conversations.reduce<Record<Conversation["id"], { isUnread: boolean; unreadCount: number }>>(
-        (acc, conv) => {
-          acc[conv.id] = parsed[conv.id] ?? { isUnread: conv.isUnread, unreadCount: conv.unreadCount };
-          return acc;
-        },
-        {},
-      );
-    }
-  } catch {
-    // ignore
-  }
-
-  return conversations.reduce<Record<Conversation["id"], { isUnread: boolean; unreadCount: number }>>((acc, conv) => {
-    acc[conv.id] = { isUnread: conv.isUnread, unreadCount: conv.unreadCount };
-    return acc;
-  }, {});
-}
-
-function saveUnreadStateToStorage(
-  unreadState: Record<Conversation["id"], { isUnread: boolean; unreadCount: number }>,
-): void {
-  if (typeof window === "undefined") return;
-
-  try {
-    window.sessionStorage.setItem(UNREAD_STORAGE_KEY, JSON.stringify(unreadState));
-  } catch {
-    // ignore
-  }
-}
-
-const initialUnreadState = loadUnreadStateFromStorage();
-
-const initialDrafts = loadDraftsFromStorage();
-
 const useChatStore = create<ChatStore>((set) => ({
   chat: {
     selected: conversations[0].id,
   },
-  drafts: initialDrafts,
-  unreadState: initialUnreadState,
+  drafts: loadDrafts(),
+  unreadState: loadUnreadState(),
   setChat: (chat) => set({ chat }),
   setDraft: (conversationId, draft) =>
     set((state) => {
       const newDrafts = { ...state.drafts, [conversationId]: draft };
-      saveDraftsToStorage(newDrafts);
+      saveDrafts(newDrafts);
       return { drafts: newDrafts };
     }),
   clearUnread: (conversationId) =>
@@ -121,7 +37,7 @@ const useChatStore = create<ChatStore>((set) => ({
         ...state.unreadState,
         [conversationId]: { isUnread: false, unreadCount: 0 },
       };
-      saveUnreadStateToStorage(newUnreadState);
+      saveUnreadState(newUnreadState);
       return { unreadState: newUnreadState };
     }),
   selectConversation: (conversationId) =>
