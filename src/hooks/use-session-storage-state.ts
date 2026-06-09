@@ -5,13 +5,12 @@ import * as React from "react";
 export function useSessionStorageState<T>(
   key: string,
   initialValue: T | (() => T),
-): [T, React.Dispatch<React.SetStateAction<T>>, boolean] {
+): [T, React.Dispatch<React.SetStateAction<T>>] {
   const [state, setState] = React.useState<T>(() =>
     typeof initialValue === "function" ? (initialValue as () => T)() : initialValue,
   );
-  const [isHydrated, setIsHydrated] = React.useState(false);
 
-  React.useEffect(() => {
+  React.useLayoutEffect(() => {
     try {
       const stored = window.sessionStorage.getItem(key);
       if (stored !== null) {
@@ -20,17 +19,15 @@ export function useSessionStorageState<T>(
     } catch {
       // ignore read errors
     }
-    setIsHydrated(true);
   }, [key]);
 
   React.useEffect(() => {
-    if (!isHydrated) return;
     try {
       window.sessionStorage.setItem(key, JSON.stringify(state));
     } catch {
       // ignore write errors
     }
-  }, [key, state, isHydrated]);
+  }, [key, state]);
 
-  return [state, setState, isHydrated];
+  return [state, setState];
 }

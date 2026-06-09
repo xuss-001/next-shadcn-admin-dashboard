@@ -25,19 +25,14 @@ import { RolesTable } from "./roles-table/table";
 const STORAGE_PREFIX = "roles-table";
 
 export function Roles({ roles }: { roles: Role[] }) {
-  const [columnFilters, setColumnFilters, isHydrated1] = useSessionStorageState<ColumnFiltersState>(
+  const [columnFilters, setColumnFilters] = useSessionStorageState<ColumnFiltersState>(
     `${STORAGE_PREFIX}-column-filters`,
     [],
   );
-  const [pagination, setPagination, isHydrated2] = useSessionStorageState<PaginationState>(
-    `${STORAGE_PREFIX}-pagination`,
-    {
-      pageIndex: 0,
-      pageSize: 12,
-    },
-  );
-
-  const isHydrated = isHydrated1 && isHydrated2;
+  const [pagination, setPagination] = useSessionStorageState<PaginationState>(`${STORAGE_PREFIX}-pagination`, {
+    pageIndex: 0,
+    pageSize: 12,
+  });
 
   const table = useReactTable({
     data: roles,
@@ -123,9 +118,7 @@ export function Roles({ roles }: { roles: Role[] }) {
                   />
                 </InputGroup>
 
-                <div
-                  className={`flex flex-wrap items-center gap-2 transition-opacity duration-150 ${isHydrated ? "opacity-100" : "opacity-0"}`}
-                >
+                <div className="flex flex-wrap items-center gap-2">
                   <Select
                     value={typeFilter}
                     onValueChange={(v) => {
