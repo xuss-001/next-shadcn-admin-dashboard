@@ -31,25 +31,30 @@ import { UsersTable } from "./users-table";
 const STORAGE_PREFIX = "users-table";
 
 export function Users({ users }: { users: UserRow[] }) {
-  const [rowSelection, setRowSelection] = useSessionStorageState(`${STORAGE_PREFIX}-row-selection`, {});
-  const [sorting, setSorting] = useSessionStorageState<SortingState>(`${STORAGE_PREFIX}-sorting`, [
+  const [rowSelection, setRowSelection, isHydrated1] = useSessionStorageState(`${STORAGE_PREFIX}-row-selection`, {});
+  const [sorting, setSorting, isHydrated2] = useSessionStorageState<SortingState>(`${STORAGE_PREFIX}-sorting`, [
     { id: "joinedDate", desc: true },
   ]);
-  const [columnFilters, setColumnFilters] = useSessionStorageState<ColumnFiltersState>(
+  const [columnFilters, setColumnFilters, isHydrated3] = useSessionStorageState<ColumnFiltersState>(
     `${STORAGE_PREFIX}-column-filters`,
     [],
   );
-  const [columnVisibility, setColumnVisibility] = useSessionStorageState<VisibilityState>(
+  const [columnVisibility, setColumnVisibility, isHydrated4] = useSessionStorageState<VisibilityState>(
     `${STORAGE_PREFIX}-column-visibility`,
     {
       search: false,
       team: false,
     },
   );
-  const [pagination, setPagination] = useSessionStorageState<PaginationState>(`${STORAGE_PREFIX}-pagination`, {
-    pageIndex: 0,
-    pageSize: 10,
-  });
+  const [pagination, setPagination, isHydrated5] = useSessionStorageState<PaginationState>(
+    `${STORAGE_PREFIX}-pagination`,
+    {
+      pageIndex: 0,
+      pageSize: 10,
+    },
+  );
+
+  const isHydrated = isHydrated1 && isHydrated2 && isHydrated3 && isHydrated4 && isHydrated5;
 
   const table = useReactTable({
     data: users,
@@ -128,7 +133,9 @@ export function Users({ users }: { users: UserRow[] }) {
       </CardHeader>
       <CardContent className="flex flex-col gap-4 px-0">
         <div className="flex flex-wrap items-center justify-between gap-3 px-4">
-          <div className="flex flex-wrap items-center gap-3">
+          <div
+            className={`flex flex-wrap items-center gap-3 transition-opacity duration-150 ${isHydrated ? "opacity-100" : "opacity-0"}`}
+          >
             <Select value={roleFilter} onValueChange={(value) => setColumnSelectFilter("role", value)}>
               <SelectTrigger size="sm">
                 <span className="text-muted-foreground">Role:</span>
@@ -178,21 +185,23 @@ export function Users({ users }: { users: UserRow[] }) {
             </Select>
           </div>
 
-          <Select value={workspaceFilter} onValueChange={(value) => setColumnSelectFilter("workspace", value)}>
-            <SelectTrigger size="sm">
-              <span className="text-muted-foreground">Workspace:</span>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent position="popper" align="end">
-              <SelectGroup>
-                {filters.workspace.map((option) => (
-                  <SelectItem key={option} value={option}>
-                    {option}
-                  </SelectItem>
-                ))}
-              </SelectGroup>
-            </SelectContent>
-          </Select>
+          <div className={`transition-opacity duration-150 ${isHydrated ? "opacity-100" : "opacity-0"}`}>
+            <Select value={workspaceFilter} onValueChange={(value) => setColumnSelectFilter("workspace", value)}>
+              <SelectTrigger size="sm">
+                <span className="text-muted-foreground">Workspace:</span>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent position="popper" align="end">
+                <SelectGroup>
+                  {filters.workspace.map((option) => (
+                    <SelectItem key={option} value={option}>
+                      {option}
+                    </SelectItem>
+                  ))}
+                </SelectGroup>
+              </SelectContent>
+            </Select>
+          </div>
         </div>
 
         <div className="flex items-center justify-between gap-3 px-4">

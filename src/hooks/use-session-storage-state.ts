@@ -5,7 +5,7 @@ import * as React from "react";
 export function useSessionStorageState<T>(
   key: string,
   initialValue: T | (() => T),
-): [T, React.Dispatch<React.SetStateAction<T>>] {
+): [T, React.Dispatch<React.SetStateAction<T>>, boolean] {
   const [state, setState] = React.useState<T>(() =>
     typeof initialValue === "function" ? (initialValue as () => T)() : initialValue,
   );
@@ -32,5 +32,5 @@ export function useSessionStorageState<T>(
     }
   }, [key, state, isHydrated]);
 
-  return [state, setState];
+  return [state, setState, isHydrated];
 }
