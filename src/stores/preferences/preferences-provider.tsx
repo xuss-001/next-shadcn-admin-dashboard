@@ -41,7 +41,6 @@ export const PreferencesStoreProvider = ({
       sidebarVariant,
       sidebarCollapsible,
       resolvedThemeMode,
-      isSynced: true,
     }),
   );
 
