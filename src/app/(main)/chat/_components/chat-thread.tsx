@@ -56,7 +56,7 @@ export function ChatThread({
   showBackButton,
   className,
 }: ChatThreadProps) {
-  const [, , drafts, setDraft] = useChat();
+  const [, , drafts, setDraft, , clearUnread] = useChat();
   return (
     <div className={cn("flex h-full flex-col py-3", className)}>
       <div className="flex flex-col gap-3">
@@ -211,6 +211,7 @@ export function ChatThread({
               conversationId={conversationId}
               drafts={drafts}
               setDraft={setDraft}
+              clearUnread={clearUnread}
             />
           </TabsContent>
           <TabsContent value="note" className="m-0">
@@ -219,6 +220,7 @@ export function ChatThread({
               conversationId={conversationId}
               drafts={drafts}
               setDraft={setDraft}
+              clearUnread={clearUnread}
             />
           </TabsContent>
         </Tabs>
@@ -232,20 +234,31 @@ function MessageComposer({
   conversationId,
   drafts,
   setDraft,
+  clearUnread,
 }: {
   placeholder: string;
   conversationId: number;
   drafts: Record<number, string>;
   setDraft: (conversationId: number, draft: string) => void;
+  clearUnread: (conversationId: number) => void;
 }) {
   const draft = drafts[conversationId] ?? "";
+
+  const handleChange = (value: string) => {
+    setDraft(conversationId, value);
+    clearUnread(conversationId);
+  };
+
+  const handleSend = () => {
+    clearUnread(conversationId);
+  };
 
   return (
     <div className="flex flex-col gap-4 px-3 pb-2">
       <Textarea
         placeholder={placeholder}
         value={draft}
-        onChange={(e) => setDraft(conversationId, e.target.value)}
+        onChange={(e) => handleChange(e.target.value)}
         className="border-0 px-0 py-0.5 text-sm shadow-none focus-visible:ring-0"
       />
 
@@ -268,7 +281,7 @@ function MessageComposer({
           </Button>
         </div>
 
-        <Button size="icon-sm">
+        <Button size="icon-sm" onClick={handleSend}>
           <Send />
         </Button>
       </div>

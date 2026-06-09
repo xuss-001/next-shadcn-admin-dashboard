@@ -125,16 +125,8 @@ const useChatStore = create<ChatStore>((set) => ({
       return { unreadState: newUnreadState };
     }),
   selectConversation: (conversationId) =>
-    set((state) => {
-      const newUnreadState = {
-        ...state.unreadState,
-        [conversationId]: { isUnread: false, unreadCount: 0 },
-      };
-      saveUnreadStateToStorage(newUnreadState);
-      return {
-        chat: { selected: conversationId },
-        unreadState: newUnreadState,
-      };
+    set({
+      chat: { selected: conversationId },
     }),
 }));
 
