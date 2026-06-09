@@ -52,6 +52,7 @@ export const PreferencesStoreProvider = ({
   navbarStyle,
   sidebarVariant,
   sidebarCollapsible,
+  resolvedThemeMode,
 }: {
   children: React.ReactNode;
   themeMode: PreferencesState["themeMode"];
@@ -61,6 +62,7 @@ export const PreferencesStoreProvider = ({
   navbarStyle: PreferencesState["navbarStyle"];
   sidebarVariant: PreferencesState["sidebarVariant"];
   sidebarCollapsible: PreferencesState["sidebarCollapsible"];
+  resolvedThemeMode: PreferencesState["resolvedThemeMode"];
 }) => {
   const [store] = useState<StoreApi<PreferencesState>>(() =>
     createPreferencesStore({
@@ -71,6 +73,7 @@ export const PreferencesStoreProvider = ({
       navbarStyle,
       sidebarVariant,
       sidebarCollapsible,
+      resolvedThemeMode,
       isSynced: true,
     }),
   );

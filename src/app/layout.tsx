@@ -1,11 +1,14 @@
 import type { ReactNode } from "react";
 
+import { headers } from "next/headers";
+
 import type { Metadata } from "next";
 
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { APP_CONFIG } from "@/config/app-config";
 import { FONT_KEYS, fontVars } from "@/lib/fonts/registry";
+import type { ResolvedThemeMode } from "@/lib/preferences/theme";
 import { ThemeBootScript } from "@/scripts/theme-boot";
 import { getAllPreferences } from "@/server/server-actions";
 import { PreferencesStoreProvider } from "@/stores/preferences/preferences-provider";
@@ -17,12 +20,31 @@ export const metadata: Metadata = {
   description: APP_CONFIG.meta.description,
 };
 
+function getResolvedThemeMode(
+  themeMode: "light" | "dark" | "system",
+  systemPreference: ResolvedThemeMode | null,
+): ResolvedThemeMode {
+  if (themeMode === "system") {
+    return systemPreference ?? "light";
+  }
+  return themeMode;
+}
+
 export default async function RootLayout({ children }: Readonly<{ children: ReactNode }>) {
   const prefs = await getAllPreferences(FONT_KEYS);
+
+  const headerStore = await headers();
+  const systemThemeHeader = headerStore.get("sec-ch-prefers-color-scheme");
+  const systemPreference: ResolvedThemeMode | null =
+    systemThemeHeader === "dark" ? "dark" : systemThemeHeader === "light" ? "light" : null;
+
+  const resolvedThemeMode = getResolvedThemeMode(prefs.themeMode, systemPreference);
+  const isDark = resolvedThemeMode === "dark";
 
   return (
     <html
       lang="en"
+      className={isDark ? "dark" : ""}
       data-theme-mode={prefs.themeMode}
       data-theme-preset={prefs.themePreset}
       data-content-layout={prefs.contentLayout}
@@ -30,6 +52,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
       data-sidebar-variant={prefs.sidebarVariant}
       data-sidebar-collapsible={prefs.sidebarCollapsible}
       data-font={prefs.font}
+      style={{ colorScheme: resolvedThemeMode }}
       suppressHydrationWarning
     >
       <head>
@@ -46,6 +69,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
             font={prefs.font}
             sidebarVariant={prefs.sidebarVariant}
             sidebarCollapsible={prefs.sidebarCollapsible}
+            resolvedThemeMode={resolvedThemeMode}
           >
             {children}
             <Toaster />
